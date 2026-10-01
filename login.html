@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .login-card {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-card h2 {
+      margin-bottom: 1.5rem;
+      color: #333333;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #555555;
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #cccccc;
+      border-radius: 5px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #3ecf8e;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: #3ecf8e;
+      border: none;
+      border-radius: 5px;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-login:hover {
+      background-color: #2eab71;
+    }
+
+    .message {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    .message.error {
+      color: #e74c3c;
+    }
+
+    .message.success {
+      color: #2ecc71;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <h2>Entrar</h2>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" required placeholder="seu@email.com">
+      </div>
+
+      <div class="form-group">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" required placeholder="••••••••">
+      </div>
+
+      <button type="submit" class="btn-login">Entrar</button>
+    </form>
+    
+    <div id="message" class="message"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const messageDiv = document.getElementById('message');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const senha = document.getElementById('senha').value;
+
+      messageDiv.textContent = 'Autenticando...';
+      messageDiv.className = 'message';
+
+      try {
+        // Exemplo visual simulando a validação dos dados:
+        if (email && senha) {
+          messageDiv.textContent = 'Login efetuado! Redirecionando...';
+          messageDiv.className = 'message success';
+
+          // Redireciona para o dashboard após 1 segundo
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1000);
+        } else {
+          throw new Error('Preencha todos os campos.');
+        }
+
+      } catch (error) {
+        messageDiv.textContent = error.message || 'Erro ao efetuar login.';
+        messageDiv.className = 'message error';
+      }
+    });
+  </script>
+
+</body>
+</html>
