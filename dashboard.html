@@ -1,433 +1,472 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Gerenciar Projetos</title>
-  <!-- CDN do Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+<script>
+  // ==========================================
+  // CONFIGURAÇÃO DO SUPABASE
+  // ==========================================
+
+  const SUPABASE_URL = "https://eyxvayeaukvjuqayekch.supabase.co";
+
+  const SUPABASE_KEY = "sb_publishable_VLI4uJG-UFaB_YPHlHA5JA_C5_-zxEw";
+
+  // Elementos da página
+  const projectForm = document.getElementById("projectForm");
+  const formTitle = document.getElementById("formTitle");
+  const btnCancel = document.getElementById("btnCancel");
+  const projectIdInput = document.getElementById("projectId");
+  const tableBody = document.getElementById("projectsTableBody");
+
+  // ==========================================
+  // ÁREA DE STATUS
+  // ==========================================
+
+  const statusBox = document.createElement("div");
+
+  statusBox.style.marginBottom = "20px";
+  statusBox.style.padding = "12px 15px";
+  statusBox.style.borderRadius = "6px";
+  statusBox.style.fontWeight = "600";
+  statusBox.style.display = "block";
+  statusBox.style.backgroundColor = "#e2e8f0";
+  statusBox.style.color = "#334155";
+  statusBox.textContent = "Iniciando conexão com o Supabase...";
+
+  document
+    .querySelector(".main-content")
+    .insertBefore(statusBox, document.querySelector(".main-content").children[1]);
+
+  function mostrarStatus(mensagem, tipo = "info") {
+
+    statusBox.textContent = mensagem;
+
+    if (tipo === "sucesso") {
+      statusBox.style.backgroundColor = "#dcfce7";
+      statusBox.style.color = "#166534";
     }
 
-    body {
-      display: flex;
-      min-height: 100vh;
-      background-color: #f4f6f8;
-      color: #333;
+    if (tipo === "erro") {
+      statusBox.style.backgroundColor = "#fee2e2";
+      statusBox.style.color = "#991b1b";
     }
 
-    /* Sidebar / Menu Lateral */
-    .sidebar {
-      width: 240px;
-      background-color: #1e293b;
-      color: #fff;
-      padding: 1.5rem 1rem;
-      display: flex;
-      flex-direction: column;
+    if (tipo === "info") {
+      statusBox.style.backgroundColor = "#e2e8f0";
+      statusBox.style.color = "#334155";
+    }
+  }
+
+  // ==========================================
+  // CONECTAR AO SUPABASE
+  // ==========================================
+
+  let supabase;
+
+  try {
+
+    if (!window.supabase) {
+      throw new Error(
+        "A biblioteca do Supabase não foi carregada."
+      );
     }
 
-    .sidebar h2 {
-      font-size: 1.2rem;
-      margin-bottom: 2rem;
-      color: #3ecf8e;
-      text-align: center;
+    supabase = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    mostrarStatus(
+      "Biblioteca do Supabase carregada. Testando conexão...",
+      "info"
+    );
+
+  } catch (erro) {
+
+    console.error(erro);
+
+    mostrarStatus(
+      "ERRO AO INICIAR SUPABASE: " + erro.message,
+      "erro"
+    );
+  }
+
+  // ==========================================
+  // TESTAR BANCO E CARREGAR PROJETOS
+  // ==========================================
+
+  async function loadProjects() {
+
+    if (!supabase) {
+      mostrarStatus(
+        "Supabase não foi inicializado.",
+        "erro"
+      );
+      return;
     }
 
-    .sidebar nav a {
-      display: block;
-      color: #cbd5e1;
-      text-decoration: none;
-      padding: 0.75rem 1rem;
-      border-radius: 6px;
-      margin-bottom: 0.5rem;
-      transition: background 0.2s;
-    }
+    mostrarStatus(
+      "Conectando ao banco de dados...",
+      "info"
+    );
 
-    .sidebar nav a:hover,
-    .sidebar nav a.active {
-      background-color: #334155;
-      color: #fff;
-    }
+    try {
 
-    .sidebar .logout {
-      margin-top: auto;
-      background-color: #ef4444;
-      color: #fff;
-      text-align: center;
-      padding: 0.6rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    /* Conteúdo Principal */
-    .main-content {
-      flex: 1;
-      padding: 2rem;
-      max-width: 1200px;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-
-    /* Form Container */
-    .card {
-      background-color: #fff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      margin-bottom: 2rem;
-    }
-
-    .card h3 {
-      margin-bottom: 1.2rem;
-      color: #0f172a;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .form-group.full-width {
-      grid-column: 1 / -1;
-    }
-
-    .form-group label {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin-bottom: 0.4rem;
-      font-weight: 600;
-    }
-
-    .form-group input,
-    .form-group textarea {
-      padding: 0.65rem;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group textarea:focus {
-      border-color: #3ecf8e;
-    }
-
-    .form-actions {
-      margin-top: 1rem;
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .btn {
-      padding: 0.65rem 1.25rem;
-      border: none;
-      border-radius: 5px;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: opacity 0.2s;
-    }
-
-    .btn:hover {
-      opacity: 0.9;
-    }
-
-    .btn-primary {
-      background-color: #3ecf8e;
-      color: #fff;
-    }
-
-    .btn-secondary {
-      background-color: #94a3b8;
-      color: #fff;
-    }
-
-    .btn-danger {
-      background-color: #ef4444;
-      color: #fff;
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
-    }
-
-    .btn-edit {
-      background-color: #3b82f6;
-      color: #fff;
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
-    }
-
-    /* Tabela */
-    .table-container {
-      background-color: #fff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 600px;
-    }
-
-    th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-      vertical-align: middle;
-    }
-
-    th {
-      background-color: #f8fafc;
-      color: #475569;
-    }
-
-    .img-preview {
-      width: 50px;
-      height: 35px;
-      object-fit: cover;
-      border-radius: 4px;
-      background-color: #e2e8f0;
-    }
-
-    .actions-cell {
-      display: flex;
-      gap: 0.4rem;
-    }
-  </style>
-</head>
-<body>
-
-  <!-- Menu Lateral -->
-  <aside class="sidebar">
-    <h2>Painel Supabase</h2>
-    <nav>
-      <a href="#" class="active">Projetos</a>
-      <a href="index.html">Ver Site</a>
-    </nav>
-    <a href="login.html" class="logout">Sair</a>
-  </aside>
-
-  <!-- Conteúdo Principal -->
-  <main class="main-content">
-    <header>
-      <h1>Gerenciar Projetos</h1>
-    </header>
-
-    <!-- Formulário de Cadastro / Edição -->
-    <section class="card">
-      <h3 id="formTitle">Adicionar Novo Projeto</h3>
-      <form id="projectForm">
-        <input type="hidden" id="projectId">
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="nome">Nome do Projeto</label>
-            <input type="text" id="nome" required placeholder="Ex: Meu App Web">
-          </div>
-
-          <div class="form-group">
-            <label for="img">URL da Imagem (img)</label>
-            <input type="text" id="img" placeholder="https://exemplo.com/imagem.png">
-          </div>
-
-          <div class="form-group">
-            <label for="link">URL do Link (link)</label>
-            <input type="text" id="link" placeholder="https://meudominio.com">
-          </div>
-
-          <div class="form-group full-width">
-            <label for="descricao">Descrição</label>
-            <textarea id="descricao" rows="3" placeholder="Pequeno resumo do projeto..."></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" id="btnSave">Salvar Projeto</button>
-          <button type="button" class="btn btn-secondary" id="btnCancel" style="display: none;" onclick="resetForm()">Cancelar</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- Tabela de Projetos -->
-    <section class="table-container">
-      <h3>Projetos Cadastrados</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Imagem</th>
-            <th>Nome</th>
-            <th>Descrição</th>
-            <th>Link</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="projectsTableBody">
-          <tr>
-            <td colspan="6" style="text-align: center;">Carregando projetos...</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  </main>
-
-  <script>
-    // 1. CONFIGURAÇÃO COM CREDENCIAIS REAIS DO SUPABASE
-    const SUPABASE_URL = "https://eyxvayeaukvjuqayekch.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_VLI4uJG-UFaB_YPHlHA5JA_C5_-zxEw";
-    
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    // Elementos da DOM
-    const projectForm = document.getElementById('projectForm');
-    const formTitle = document.getElementById('formTitle');
-    const btnCancel = document.getElementById('btnCancel');
-    const projectIdInput = document.getElementById('projectId');
-    const tableBody = document.getElementById('projectsTableBody');
-
-    // 2. BUSCAR E CARREGAR PROJETOS (SELECT)
-    async function loadProjects() {
       const { data, error } = await supabase
-        .from('projetos')
-        .select('*')
-        .order('id', { ascending: true });
+        .from("projetos")
+        .select("*")
+        .order("id", { ascending: true });
 
       if (error) {
-        console.error('Erro ao buscar projetos:', error.message);
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">Erro ao carregar dados: ${error.message}</td></tr>`;
+
+        console.error("Erro do Supabase:", error);
+
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6"
+              style="text-align:center;color:red;">
+              Erro ao carregar: ${error.message}
+            </td>
+          </tr>
+        `;
+
+        mostrarStatus(
+          "ERRO NO SUPABASE: " + error.message,
+          "erro"
+        );
+
         return;
       }
+
+      mostrarStatus(
+        "Conexão com o Supabase funcionando!",
+        "sucesso"
+      );
 
       if (!data || data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Nenhum projeto cadastrado.</td></tr>`;
+
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6"
+              style="text-align:center;">
+              Nenhum projeto cadastrado.
+            </td>
+          </tr>
+        `;
+
         return;
       }
 
-      tableBody.innerHTML = '';
-      data.forEach(p => {
-        const row = document.createElement('tr');
+      tableBody.innerHTML = "";
+
+      data.forEach((p) => {
+
+        const row = document.createElement("tr");
+
         row.innerHTML = `
           <td>${p.id}</td>
-          <td><img src="${p.img || 'https://via.placeholder.com/50'}" class="img-preview" alt="Preview"></td>
-          <td><strong>${p.nome}</strong></td>
-          <td>${p.descricao || '-'}</td>
-          <td>${p.link ? `<a href="${p.link}" target="_blank">Acessar</a>` : '-'}</td>
+
+          <td>
+            ${
+              p.img
+                ? `<img src="${p.img}"
+                    class="img-preview"
+                    alt="Preview">`
+                : "-"
+            }
+          </td>
+
+          <td>
+            <strong>${escapeHtml(p.nome || "")}</strong>
+          </td>
+
+          <td>
+            ${escapeHtml(p.descricao || "-")}
+          </td>
+
+          <td>
+            ${
+              p.link
+                ? `<a href="${p.link}"
+                    target="_blank"
+                    rel="noopener noreferrer">
+                    Acessar
+                  </a>`
+                : "-"
+            }
+          </td>
+
           <td class="actions-cell">
-            <button class="btn btn-edit" onclick="editProject(${p.id}, '${escapeHtml(p.nome)}', '${escapeHtml(p.descricao || '')}', '${escapeHtml(p.img || '')}', '${escapeHtml(p.link || '')}')">Editar</button>
-            <button class="btn btn-danger" onclick="deleteProject(${p.id})">Excluir</button>
+
+            <button
+              class="btn btn-edit"
+              onclick="editProject(
+                ${p.id},
+                '${escapeHtml(p.nome || "")}',
+                '${escapeHtml(p.descricao || "")}',
+                '${escapeHtml(p.img || "")}',
+                '${escapeHtml(p.link || "")}'
+              )">
+              Editar
+            </button>
+
+            <button
+              class="btn btn-danger"
+              onclick="deleteProject(${p.id})">
+              Excluir
+            </button>
+
           </td>
         `;
+
         tableBody.appendChild(row);
       });
+
+    } catch (erro) {
+
+      console.error("Erro inesperado:", erro);
+
+      mostrarStatus(
+        "ERRO DE CONEXÃO: " + erro.message,
+        "erro"
+      );
+    }
+  }
+
+  // ==========================================
+  // SALVAR / ATUALIZAR PROJETO
+  // ==========================================
+
+  projectForm.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    if (!supabase) {
+
+      mostrarStatus(
+        "Supabase não está conectado.",
+        "erro"
+      );
+
+      return;
     }
 
-    // 3. SALVAR OU ATUALIZAR PROJETO (INSERT / UPDATE)
-    projectForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    const id = projectIdInput.value;
 
-      const id = projectIdInput.value;
-      const nome = document.getElementById('nome').value;
-      const descricao = document.getElementById('descricao').value;
-      const img = document.getElementById('img').value;
-      const link = document.getElementById('link').value;
+    const nome =
+      document.getElementById("nome").value.trim();
 
-      const projectData = { nome, descricao, img, link };
+    const descricao =
+      document.getElementById("descricao").value.trim();
+
+    const img =
+      document.getElementById("img").value.trim();
+
+    const link =
+      document.getElementById("link").value.trim();
+
+    const projectData = {
+      nome: nome,
+      descricao: descricao,
+      img: img,
+      link: link
+    };
+
+    mostrarStatus(
+      "Enviando projeto para o Supabase...",
+      "info"
+    );
+
+    try {
+
+      // ========================================
+      // ATUALIZAR
+      // ========================================
 
       if (id) {
-        // UPDATE
+
         const { error } = await supabase
-          .from('projetos')
+          .from("projetos")
           .update(projectData)
-          .eq('id', id);
+          .eq("id", id);
 
         if (error) {
-          alert('Erro ao atualizar: ' + error.message);
-        } else {
-          alert('Projeto atualizado com sucesso!');
+
+          console.error("Erro ao atualizar:", error);
+
+          mostrarStatus(
+            "ERRO AO ATUALIZAR: " + error.message,
+            "erro"
+          );
+
+          return;
         }
-      } else {
-        // INSERT
-        const { error } = await supabase
-          .from('projetos')
-          .insert([projectData]);
+
+        mostrarStatus(
+          "Projeto atualizado com sucesso!",
+          "sucesso"
+        );
+
+      }
+
+      // ========================================
+      // INSERIR
+      // ========================================
+
+      else {
+
+        const { data, error } = await supabase
+          .from("projetos")
+          .insert([projectData])
+          .select();
 
         if (error) {
-          alert('Erro ao cadastrar: ' + error.message);
-        } else {
-          alert('Projeto criado com sucesso!');
+
+          console.error("Erro ao cadastrar:", error);
+
+          mostrarStatus(
+            "ERRO AO CADASTRAR: " + error.message,
+            "erro"
+          );
+
+          return;
         }
+
+        console.log("Projeto criado:", data);
+
+        mostrarStatus(
+          "PROJETO SALVO NO SUPABASE COM SUCESSO!",
+          "sucesso"
+        );
       }
 
       resetForm();
-      loadProjects();
+
+      await loadProjects();
+
+    } catch (erro) {
+
+      console.error("Erro inesperado:", erro);
+
+      mostrarStatus(
+        "ERRO INESPERADO: " + erro.message,
+        "erro"
+      );
+    }
+  });
+
+  // ==========================================
+  // EDITAR
+  // ==========================================
+
+  function editProject(
+    id,
+    nome,
+    descricao,
+    img,
+    link
+  ) {
+
+    formTitle.textContent =
+      "Editar Projeto #" + id;
+
+    projectIdInput.value = id;
+
+    document.getElementById("nome").value = nome;
+
+    document.getElementById("descricao").value =
+      descricao;
+
+    document.getElementById("img").value =
+      img;
+
+    document.getElementById("link").value =
+      link;
+
+    btnCancel.style.display =
+      "inline-block";
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
     });
+  }
 
-    // 4. PREENCHER FORMULÁRIO PARA EDIÇÃO
-    function editProject(id, nome, descricao, img, link) {
-      formTitle.textContent = 'Editar Projeto #' + id;
-      projectIdInput.value = id;
-      document.getElementById('nome').value = nome;
-      document.getElementById('descricao').value = descricao;
-      document.getElementById('img').value = img;
-      document.getElementById('link').value = link;
+  // ==========================================
+  // EXCLUIR
+  // ==========================================
 
-      btnCancel.style.display = 'inline-block';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  async function deleteProject(id) {
+
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir o projeto #${id}?`
+      )
+    ) {
+      return;
     }
 
-    // 5. DELETAR PROJETO (DELETE)
-    async function deleteProject(id) {
-      if (confirm(`Tem certeza que deseja excluir o projeto #${id}?`)) {
-        const { error } = await supabase
-          .from('projetos')
-          .delete()
-          .eq('id', id);
+    try {
 
-        if (error) {
-          alert('Erro ao excluir: ' + error.message);
-        } else {
-          alert('Projeto excluído!');
-          loadProjects();
-        }
+      const { error } = await supabase
+        .from("projetos")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+
+        mostrarStatus(
+          "ERRO AO EXCLUIR: " + error.message,
+          "erro"
+        );
+
+        return;
       }
+
+      mostrarStatus(
+        "Projeto excluído com sucesso!",
+        "sucesso"
+      );
+
+      await loadProjects();
+
+    } catch (erro) {
+
+      mostrarStatus(
+        "ERRO: " + erro.message,
+        "erro"
+      );
     }
+  }
 
-    // Limpar formulário
-    function resetForm() {
-      formTitle.textContent = 'Adicionar Novo Projeto';
-      projectIdInput.value = '';
-      projectForm.reset();
-      btnCancel.style.display = 'none';
-    }
+  // ==========================================
+  // RESETAR FORMULÁRIO
+  // ==========================================
 
-    // Utilitário para evitar erros de aspas no HTML
-    function escapeHtml(text) {
-      return text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-    }
+  function resetForm() {
 
-    // Inicializa carregando a lista do banco de dados
-    loadProjects();
-  </script>
+    formTitle.textContent =
+      "Adicionar Novo Projeto";
 
-</body>
-</html>
+    projectIdInput.value = "";
+
+    projectForm.reset();
+
+    btnCancel.style.display =
+      "none";
+  }
+
+  // ==========================================
+  // ESCAPAR TEXTO
+  // ==========================================
+
+  function escapeHtml(text) {
+
+    return String(text)
+      .replace(/'/g, "\\'")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ==========================================
+  // INICIAR
+  // ==========================================
+
+  loadProjects();
+
+</script>
